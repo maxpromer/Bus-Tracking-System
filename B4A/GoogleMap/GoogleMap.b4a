@@ -1,0 +1,162 @@
+﻿Version=6
+NumberOfModules=8
+Module1=mapModule
+Module2=ASocket
+Module3=BusInfo
+Module4=ImageDownloader
+Module5=appinfo
+Module6=timeTable
+Module7=trackHistory
+Module8=sc_timeTable
+Build1=Default,iox.wherebus.app
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: http://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="9" android:targetSdkVersion="21"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'SetApplicationAttribute(android:theme, "@android:style/Theme.Holo")~\n~SetApplicationAttribute(android:theme, "@android:style/Theme.Material.Light")~\n~~\n~' Google Map API~\n~AddManifestText( <permission~\n~          android:name="$PACKAGE$.permission.MAPS_RECEIVE"~\n~          android:protectionLevel="signature"/>~\n~      <uses-feature android:glEsVersion="0x00020000" android:required="true"/>)~\n~~\n~AddApplicationText(<meta-data~\n~    android:name="com.google.android.maps.v2.API_KEY"~\n~    android:value="AIzaSyBnEr1LviXJ1f5WVoQC0iFmIk0gOvjY29c"/>~\n~<meta-data android:name="com.google.android.gms.version"~\n~android:value="@integer/google_play_services_version"~\n~    />)~\n~	~\n~AddPermission(android.permission.ACCESS_NETWORK_STATE)~\n~AddPermission(android.permission.INTERNET)~\n~AddPermission(android.permission.ACCESS_FINE_LOCATION)~\n~'End of default text.~\n~
+IconFile=
+NumberOfFiles=15
+File1=1024px-bus-logo.svg.inv.png
+File2=appinfo.bal
+File3=back-icon.png
+File4=bus-icon-90x90.png
+File5=bus-icon-90x90-black.png
+File6=BusInfo.bal
+File7=bus-station-red-hi.png
+File8=cancel.png
+File9=info-icon.png
+File10=layoutHistory.bal
+File11=logoLayout.bal
+File12=mainLayout.bal
+File13=menu.png
+File14=sc_timeTable.bal
+File15=time-icon.png
+NumberOfLibraries=13
+Library1=core
+Library2=googlemaps
+Library3=http
+Library4=json
+Library5=phone
+Library6=httputils2
+Library7=gps
+Library8=network
+Library9=randomaccessfile
+Library10=animation
+Library11=javaobject
+Library12=googlemapsextras
+Library13=reflection
+@EndOfDesignText@
+#Region  Project Attributes 
+	#ApplicationLabel: Where Bus
+	#VersionCode: 2
+	#VersionName: 0.2 beta
+	'SupportedOrientations possible values: unspecified, landscape or portrait.
+	'#SupportedOrientations: unspecified
+	#SupportedOrientations: portrait
+	#CanInstallToExternalStorage: False
+	#AdditionalRes: C:\Android\android-sdk\extras\google\google_play_services\libproject\google-play-services_lib\res, com.google.android.gms
+#End Region
+
+#Region  Activity Attributes 
+	#FullScreen: False
+	#IncludeTitle: False
+#End Region
+
+Sub Process_Globals
+	Dim TrackAllBus As List
+	Dim GExit As Boolean = False
+	Dim gps As GPS
+End Sub
+
+Sub Globals
+	Private Panel1 As Panel
+	Private ImageView1 As ImageView
+	Private Label1 As Label
+	Private Label2 As Label
+	
+	Dim urlTrack As String = "http://<Can not be revealed>:85/track"
+	Dim http As HttpJob
+	
+	Dim strJson As String
+End Sub
+
+Sub Activity_Create(FirstTime As Boolean)
+	'StartActivity(mapModule)
+
+	Activity.LoadLayout("logoLayout")
+	
+	Panel1.Width = 100%x
+	Panel1.Top = 50%y - Panel1.Height / 2
+	Label1.Width = 100%x
+	
+	ImageView1.Left = 50%x - ImageView1.Width / 2
+	Label2.Top = 100%y - Label2.Height
+	Label2.Width = 100%x
+	
+	gps.Initialize("gps")
+End Sub
+
+
+Sub Activity_Resume
+	If GExit = True Then Activity.Finish
+	
+	Do While ConnectedInternet = False
+		Dim ros As Int = Msgbox2("ไม่สามารถเชื่อมต่ออินเตอร์เน็ตได้", "ผิดพลาด", "ลองใหม่", "", "ยกเลิก", Null)
+		If ros = DialogResponse.NEGATIVE Then
+			ExitApplication
+		End If
+	Loop
+	
+	Do While gps.GPSEnabled = False
+		Dim res As Int
+		res = Msgbox2("เปิด GPS จะทำให้สามารถคำนวนระยะระหว่างคุณกับรถเมล์ได้", "ไม่สามารถใช้ GPS ได้", "ลองอีกครั้ง", "ตั้งค่า", "ไม่สนใจ", Null)
+		If res = DialogResponse.CANCEL Then
+			StartActivity(gps.LocationSettingsIntent)
+		Else If res = DialogResponse.NEGATIVE Then
+			Exit
+		End If
+	Loop
+	
+	http.Initialize(urlTrack, Me)
+	http.Download(urlTrack)
+End Sub
+
+Sub Activity_Pause (UserClosed As Boolean)
+	If UserClosed Then
+		ExitApplication
+	End If
+End Sub
+
+Sub ConnectedInternet As Boolean
+    'Requires Phone Library
+	Dim p As Phone
+	Dim Response, Error As StringBuilder
+	Response.Initialize
+	Error.Initialize
+	'Ping Google DNS - if you can't reach this you are in serious trouble!
+	p.Shell("ping -c 1 <Can not be revealed>", Null, Response, Error)
+
+	Return Error.ToString = ""
+End Sub
+
+Sub JobDone (Job As HttpJob)
+	If Job.Success = True Then
+		Select Job.JobName
+			Case urlTrack
+				strJson = Job.GetString
+				Dim JSON As JSONParser
+			    JSON.Initialize(strJson)
+			    Dim ros As Map = JSON.NextObject
+				Dim e As Boolean = ros.Get("e")
+				If e = False Then
+					TrackAllBus = ros.Get("data")
+					gps.Stop
+					StartActivity(mapModule)
+				
+				Else
+					Dim msg As String = ros.Get("msg")
+					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")
+					ExitApplication
+				End If
+		End Select
+	Else
+		ToastMessageShow("Error: " & Job.ErrorMessage, True)
+	End If
+End Sub
+
