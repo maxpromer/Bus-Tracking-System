@@ -22,4 +22,4 @@
 
 ## สัญญาอนุญาตการใช้งาน
 
-เงื่อนไขสัญญาณอนุญาตแบบ Apache License 2.0 : https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
+เงื่อนไขสัญญาอนุญาตแบบ Apache License 2.0 : https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
