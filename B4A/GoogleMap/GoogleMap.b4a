@@ -8,8 +8,8 @@ Module5=appinfo
 Module6=timeTable
 Module7=trackHistory
 Module8=sc_timeTable
-Build1=Default,iox.wherebus.app
-ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: http://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="9" android:targetSdkVersion="21"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'SetApplicationAttribute(android:theme, "@android:style/Theme.Holo")~\n~SetApplicationAttribute(android:theme, "@android:style/Theme.Material.Light")~\n~~\n~' Google Map API~\n~AddManifestText( <permission~\n~          android:name="$PACKAGE$.permission.MAPS_RECEIVE"~\n~          android:protectionLevel="signature"/>~\n~      <uses-feature android:glEsVersion="0x00020000" android:required="true"/>)~\n~~\n~AddApplicationText(<meta-data~\n~    android:name="com.google.android.maps.v2.API_KEY"~\n~    android:value="AIzaSyBnEr1LviXJ1f5WVoQC0iFmIk0gOvjY29c"/>~\n~<meta-data android:name="com.google.android.gms.version"~\n~android:value="@integer/google_play_services_version"~\n~    />)~\n~	~\n~AddPermission(android.permission.ACCESS_NETWORK_STATE)~\n~AddPermission(android.permission.INTERNET)~\n~AddPermission(android.permission.ACCESS_FINE_LOCATION)~\n~'End of default text.~\n~
+Build1=Default,com.e_tect_bus.app
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: http://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="9" android:targetSdkVersion="21"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'SetApplicationAttribute(android:theme, "@android:style/Theme.Holo")~\n~SetApplicationAttribute(android:theme, "@android:style/Theme.Material.Light")~\n~~\n~' Google Map API~\n~AddManifestText( <permission~\n~          android:name="$PACKAGE$.permission.MAPS_RECEIVE"~\n~          android:protectionLevel="signature"/>~\n~      <uses-feature android:glEsVersion="0x00020000" android:required="true"/>)~\n~~\n~AddApplicationText(<meta-data~\n~    android:name="com.google.android.maps.v2.API_KEY"~\n~    android:value="AIzaSyAgmK6KAjE2z1IEPvyrgrVqwA14HVsgZW8"/>~\n~<meta-data android:name="com.google.android.gms.version"~\n~android:value="@integer/google_play_services_version"~\n~    />)~\n~	~\n~AddPermission(android.permission.ACCESS_NETWORK_STATE)~\n~AddPermission(android.permission.INTERNET)~\n~AddPermission(android.permission.ACCESS_FINE_LOCATION)~\n~'End of default text.~\n~
 IconFile=
 NumberOfFiles=15
 File1=1024px-bus-logo.svg.inv.png
@@ -43,13 +43,13 @@ Library12=googlemapsextras
 Library13=reflection
 @EndOfDesignText@
 #Region  Project Attributes 
-	#ApplicationLabel: Where Bus
-	#VersionCode: 2
-	#VersionName: 0.2 beta
+	#ApplicationLabel: E-TECH School Bus
+	#VersionCode: 1
+	#VersionName: 0.1 beta
 	'SupportedOrientations possible values: unspecified, landscape or portrait.
 	'#SupportedOrientations: unspecified
 	#SupportedOrientations: portrait
-	#CanInstallToExternalStorage: False
+	#CanInstallToExternalStorage: True
 	#AdditionalRes: C:\Android\android-sdk\extras\google\google_play_services\libproject\google-play-services_lib\res, com.google.android.gms
 #End Region
 
@@ -59,9 +59,10 @@ Library13=reflection
 #End Region
 
 Sub Process_Globals
-	Dim TrackAllBus As List
 	Dim GExit As Boolean = False
 	Dim gps As GPS
+	
+	Dim netpie_token As String = "JyHD5fNyNxDkieT:s6dxY2ZdmzYzz8V2WDNVHnaPm"
 End Sub
 
 Sub Globals
@@ -69,25 +70,13 @@ Sub Globals
 	Private ImageView1 As ImageView
 	Private Label1 As Label
 	Private Label2 As Label
-	
-	Dim urlTrack As String = "http://<Can not be revealed>:85/track"
-	Dim http As HttpJob
-	
-	Dim strJson As String
 End Sub
 
 Sub Activity_Create(FirstTime As Boolean)
 	'StartActivity(mapModule)
-
+	If GExit = True Then Activity.Finish
+	
 	Activity.LoadLayout("logoLayout")
-	
-	Panel1.Width = 100%x
-	Panel1.Top = 50%y - Panel1.Height / 2
-	Label1.Width = 100%x
-	
-	ImageView1.Left = 50%x - ImageView1.Width / 2
-	Label2.Top = 100%y - Label2.Height
-	Label2.Width = 100%x
 	
 	gps.Initialize("gps")
 End Sub
@@ -113,11 +102,12 @@ Sub Activity_Resume
 		End If
 	Loop
 	
-	http.Initialize(urlTrack, Me)
-	http.Download(urlTrack)
+	StartActivity(mapModule)
 End Sub
 
 Sub Activity_Pause (UserClosed As Boolean)
+	If GExit = True Then Activity.Finish
+	
 	If UserClosed Then
 		ExitApplication
 	End If
@@ -130,33 +120,8 @@ Sub ConnectedInternet As Boolean
 	Response.Initialize
 	Error.Initialize
 	'Ping Google DNS - if you can't reach this you are in serious trouble!
-	p.Shell("ping -c 1 <Can not be revealed>", Null, Response, Error)
+	p.Shell("ping -c 1 google.co.th", Null, Response, Error)
 
 	Return Error.ToString = ""
-End Sub
-
-Sub JobDone (Job As HttpJob)
-	If Job.Success = True Then
-		Select Job.JobName
-			Case urlTrack
-				strJson = Job.GetString
-				Dim JSON As JSONParser
-			    JSON.Initialize(strJson)
-			    Dim ros As Map = JSON.NextObject
-				Dim e As Boolean = ros.Get("e")
-				If e = False Then
-					TrackAllBus = ros.Get("data")
-					gps.Stop
-					StartActivity(mapModule)
-				
-				Else
-					Dim msg As String = ros.Get("msg")
-					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")
-					ExitApplication
-				End If
-		End Select
-	Else
-		ToastMessageShow("Error: " & Job.ErrorMessage, True)
-	End If
 End Sub
 
