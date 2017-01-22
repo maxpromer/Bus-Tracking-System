@@ -114,6 +114,7 @@ Sub JobDone (Job As HttpJob)
 							topPos = topPos + 40dip
 						Next
 					Next
+					ScrollView1.Panel.Height = topPos + 20dip
 				Else
 					Dim msg As String = ros.Get("msg")
 					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")

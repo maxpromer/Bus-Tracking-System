@@ -11,22 +11,23 @@ Module8=sc_timeTable
 Build1=Default,iox.wherebus.app
 ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: http://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="9" android:targetSdkVersion="21"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'SetApplicationAttribute(android:theme, "@android:style/Theme.Holo")~\n~SetApplicationAttribute(android:theme, "@android:style/Theme.Material.Light")~\n~~\n~' Google Map API~\n~AddManifestText( <permission~\n~          android:name="$PACKAGE$.permission.MAPS_RECEIVE"~\n~          android:protectionLevel="signature"/>~\n~      <uses-feature android:glEsVersion="0x00020000" android:required="true"/>)~\n~~\n~AddApplicationText(<meta-data~\n~    android:name="com.google.android.maps.v2.API_KEY"~\n~    android:value="AIzaSyBnEr1LviXJ1f5WVoQC0iFmIk0gOvjY29c"/>~\n~<meta-data android:name="com.google.android.gms.version"~\n~android:value="@integer/google_play_services_version"~\n~    />)~\n~	~\n~AddPermission(android.permission.ACCESS_NETWORK_STATE)~\n~AddPermission(android.permission.INTERNET)~\n~AddPermission(android.permission.ACCESS_FINE_LOCATION)~\n~'End of default text.~\n~
 IconFile=
-NumberOfFiles=15
+NumberOfFiles=16
 File1=1024px-bus-logo.svg.inv.png
-File2=appinfo.bal
-File3=back-icon.png
-File4=bus-icon-90x90.png
-File5=bus-icon-90x90-black.png
-File6=BusInfo.bal
-File7=bus-station-red-hi.png
-File8=cancel.png
-File9=info-icon.png
-File10=layoutHistory.bal
-File11=logoLayout.bal
-File12=mainLayout.bal
-File13=menu.png
-File14=sc_timeTable.bal
-File15=time-icon.png
+File2=a-b-make-icon-90x90.png
+File3=appinfo.bal
+File4=back-icon.png
+File5=bus-icon-90x90.png
+File6=bus-icon-90x90-black.png
+File7=BusInfo.bal
+File8=bus-station-red-hi.png
+File9=cancel.png
+File10=info-icon.png
+File11=layoutHistory.bal
+File12=logoLayout.bal
+File13=mainLayout.bal
+File14=menu.png
+File15=sc_timeTable.bal
+File16=time-icon.png
 NumberOfLibraries=13
 Library1=core
 Library2=googlemaps
@@ -44,8 +45,8 @@ Library13=reflection
 @EndOfDesignText@
 #Region  Project Attributes 
 	#ApplicationLabel: Where Bus
-	#VersionCode: 2
-	#VersionName: 0.2 beta
+	#VersionCode: 3
+	#VersionName: 1 beta
 	'SupportedOrientations possible values: unspecified, landscape or portrait.
 	'#SupportedOrientations: unspecified
 	#SupportedOrientations: portrait
@@ -60,6 +61,7 @@ Library13=reflection
 
 Sub Process_Globals
 	Dim TrackAllBus As List
+	Dim AllPlaces As List
 	Dim GExit As Boolean = False
 	Dim gps As GPS
 End Sub
@@ -70,7 +72,8 @@ Sub Globals
 	Private Label1 As Label
 	Private Label2 As Label
 	
-	Dim urlTrack As String = "http://<Can not be revealed>:85/track"
+'	Dim urlTrack As String = "http://<Can not be revealed>:85/track"
+	Dim urlPlaces As String = "http://<Can not be revealed>:85/places"
 	Dim http As HttpJob
 	
 	Dim strJson As String
@@ -81,17 +84,8 @@ Sub Activity_Create(FirstTime As Boolean)
 
 	Activity.LoadLayout("logoLayout")
 	
-	Panel1.Width = 100%x
-	Panel1.Top = 50%y - Panel1.Height / 2
-	Label1.Width = 100%x
-	
-	ImageView1.Left = 50%x - ImageView1.Width / 2
-	Label2.Top = 100%y - Label2.Height
-	Label2.Width = 100%x
-	
 	gps.Initialize("gps")
 End Sub
-
 
 Sub Activity_Resume
 	If GExit = True Then Activity.Finish
@@ -113,8 +107,11 @@ Sub Activity_Resume
 		End If
 	Loop
 	
-	http.Initialize(urlTrack, Me)
-	http.Download(urlTrack)
+	'http.Initialize(urlTrack, Me)
+	'http.Download(urlTrack)
+	
+	http.Initialize(urlPlaces, Me)
+	http.Download(urlPlaces)
 End Sub
 
 Sub Activity_Pause (UserClosed As Boolean)
@@ -138,14 +135,31 @@ End Sub
 Sub JobDone (Job As HttpJob)
 	If Job.Success = True Then
 		Select Job.JobName
-			Case urlTrack
+'			Case urlTrack
+'				strJson = Job.GetString
+'				Dim JSON As JSONParser
+'			    JSON.Initialize(strJson)
+'			    Dim ros As Map = JSON.NextObject
+'				Dim e As Boolean = ros.Get("e")
+'				If e = False Then
+'					TrackAllBus = ros.Get("data")
+'					gps.Stop
+'					StartActivity(mapModule)
+'				
+'				Else
+'					Dim msg As String = ros.Get("msg")
+'					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")
+'					ExitApplication
+'				End If
+				
+			Case urlPlaces
 				strJson = Job.GetString
 				Dim JSON As JSONParser
 			    JSON.Initialize(strJson)
 			    Dim ros As Map = JSON.NextObject
 				Dim e As Boolean = ros.Get("e")
 				If e = False Then
-					TrackAllBus = ros.Get("data")
+					AllPlaces = ros.Get("data")
 					gps.Stop
 					StartActivity(mapModule)
 				

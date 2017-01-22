@@ -74,8 +74,8 @@ Sub JobDone (Job As HttpJob)
 						ScrollView1.Panel.AddView(LabelRoute, 20dip, topPos + 20dip, 100%x, 20dip)
 						topPos = topPos + 20dip + 20dip + 10dip
 						
-						Log(LabelRoute.Text)
-						Log(l_time)
+'						Log(LabelRoute.Text)
+'						Log(l_time)
 						
 						Dim FistH As Boolean = False
 						For i2 = 0 To l_time.Size - 1

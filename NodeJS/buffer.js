@@ -13,10 +13,13 @@ exports.Add = (imei, location) => {
 		return false;
 	if (typeof location.speedkm !== "number") 
 		location.speedkm = 0;
+	if (typeof location.direction!== "number") 
+		location.direction = 0;
 	
 	var latitude = location.lat;
 	var longitude = location.long;
 	var speedkm = location.speedkm
+	var direction = location.direction
 	
 	var find = exports.findByImei(imei, true);
 	if (find === false) {
@@ -25,12 +28,15 @@ exports.Add = (imei, location) => {
 			latitude: latitude, 
 			longitude: longitude,
 			speedkm: speedkm,
+			direction: direction,
 			update: Math.floor(new Date().getTime() / 1000)
 		});
 	} else {
 		exports.Update(imei, { 
 			latitude: latitude, 
-			longitude: longitude
+			longitude: longitude,
+			speedkm: speedkm,
+			direction: direction
 		});
 	}
 	return true;
@@ -47,6 +53,8 @@ exports.Update = (imei, location) => {
 		return false;
 	if (typeof location.speedkm !== "number") 
 		location.speedkm = 0;
+	if (typeof location.direction!== "number") 
+		location.direction = 0;
 	
 	var find = exports.findByImei(imei, true);
 	if (find === false) {
@@ -55,6 +63,7 @@ exports.Update = (imei, location) => {
 		_buffer[find].latitude = location.lat;
 		_buffer[find].longitude = location.long;
 		_buffer[find].speedkm = location.speedkm;
+		_buffer[find].direction = location.direction;
 		_buffer[find].update = Math.floor(new Date().getTime() / 1000);
 	}
 	if (typeof exports.onupdate === "function") 
@@ -64,6 +73,8 @@ exports.Update = (imei, location) => {
 };
 
 exports.Remove = (index) => {
+	if (typeof exports.onremove === "function") 
+		exports.onremove(_buffer[index]);
 	_buffer = _buffer.splice(index, -1);
 	return true;
 }
@@ -71,7 +82,7 @@ exports.Remove = (index) => {
 exports.RemoveByImei = (imei) => {
 	var find = exports.findByImei(imei, true);
 	if (find !== false) {
-		_buffer = _buffer.splice(find, -1);
+		exports.Remove(find);
 	}
 	return true;
 }

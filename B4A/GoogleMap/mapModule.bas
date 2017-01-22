@@ -35,24 +35,34 @@ Sub Globals
 	Private ListView2 As ListView
 	
 	Dim TrackAllBus As List = Main.TrackAllBus
-	Dim TrackBusName As Map
+	Dim AllPlaces As List = Main.AllPlaces
+	Dim TrackBusMarker As Marker
+	Dim TrackBus As Map
+	Dim MakePoint As List
 	
 	Dim viewAnima1,viewAnima2 As Panel
 	Dim viewAnimaX, viewAnimaY As Object
-	
-	Dim shortDistance As Int = 999999999
-	Dim shortDistanceImei As String
+
 	Dim FollowBus As Boolean = False
-	Dim FollowImei As String
 	
-	Dim historyTrack As Map
+	Dim historyTrack As List
 	
 	'Dim TouchstartX, TouchstartY As Int
 	Dim TouchstartX As Int
+	
+	Dim SelectPlace As Int
+	Private Panel8 As Panel
+	Private ListView3 As ListView
+	
+'	Dim Panel8_TouchstartY As Float
 End Sub
 
 Sub Activity_Create(FirstTime As Boolean)
 	Activity.LoadLayout("mainLayout")
+	
+	If TrackBus.IsInitialized = False Then
+		TrackBus.Initialize
+	End If
 	
 	ListView1.SingleLineLayout.Label.TextColor = Colors.ARGB(255, 61, 61, 61)
 	
@@ -62,13 +72,18 @@ Sub Activity_Create(FirstTime As Boolean)
 	Dim inList As List
 	inList.Initialize
 	
-	If TrackAllBus.IsInitialized Then
-		For i = 0 To TrackAllBus.Size - 1
-			Dim m As Map = TrackAllBus.Get(0)
-			If inList.IndexOf(m.Get("name")) == -1 Then 
-				ListView1.AddSingleLine(m.Get("name"))
-				inList.Add(m.Get("name"))
-			End If
+	If AllPlaces.IsInitialized Then
+'		For i = 0 To TrackAllBus.size - 1
+'			Dim m As Map = TrackAllBus.get(0)
+'			If inList.indexof(m.get("name")) == -1 Then 
+'				ListView1.addsingleline(m.get("name"))
+'				inList.add(m.get("name"))
+'			End If
+'	    Next
+		
+		For i = 0 To AllPlaces.size - 1
+			Dim m As Map = AllPlaces.get(i)
+			ListView1.addsingleline(m.get("name"))
 	    Next
 	Else
 		ToastMessageShow("Error TrackAllBus not Initialized : " & TrackAllBus, True)
@@ -109,6 +124,9 @@ End Sub
 
 Sub Map_MarkerClick(SelectedMarker As Marker) As Boolean
 	' ToastMessageShow(SelectedMarker.Title, False)
+	If SelectedMarker.Title = "จุดเริ่มต้น" Or SelectedMarker.Title = "จุดสิ้นสุด" Then
+		Return False
+	End If
 	ShowInfo = SelectedMarker.Title
 	StartActivity(BusInfo)
 	Return True
@@ -128,70 +146,198 @@ Sub EditText1_TextChanged (Old As String, New As String)
 End Sub
 
 Sub ListView1_ItemClick (Position As Int, Value As Object)
-	fadeOut(Panel3, 500)
+	' fadeOut(Panel3, 500)
 	EditText1.Text = Value
-	
+
 	ProgressDialogShow("รอซักครู่...")
-	http.Initialize("ListByName", Me)
-	http.Download2("http://<Can not be revealed>:85/track", Array As String("name", EditText1.Text))
+'	http.Initialize("ListByName", Me)
+	http.Initialize("TrackPlace", Me)
+	If gmap.MyLocation.IsInitialized Then
+		Dim MyLocal As LatLng = gmap.MyLocation
+		http.Download2("http://<Can not be revealed>:85/track", Array As String("place", EditText1.Text, "location", $"${MyLocal.Latitude},${MyLocal.Longitude}"$))
+	Else
+		http.Download2("http://<Can not be revealed>:85/track", Array As String("place", EditText1.Text))
+	End If
+	SelectPlace = Position
 End Sub
 
 Sub JobDone (Job As HttpJob)
 	If Job.Success = True Then
 		Select Job.JobName
-			Case "ListByName"
+
+			Case "TrackPlace"
 				Dim strJson As String = Job.GetString
+'				Log(strJson)
 				Dim JSON As JSONParser
 			    JSON.Initialize(strJson)
 			    Dim ros As Map = JSON.NextObject
 				Dim e As Boolean = ros.Get("e")
 				If e = False Then
-					Dim data As List = ros.Get("data")
-					If TrackBusName.IsInitialized = False Then 
-						TrackBusName.Initialize
-					End If
-					If historyTrack.IsInitialized = False Then 
-						historyTrack.Initialize
-					End If
-					For i = 0 To data.Size - 1
-						Dim row As Map = data.Get(i)
-						Dim online As Boolean = row.Get("online")
-						Dim imei As String = row.Get("imei")
-						'Dim name As String = row.Get("name")
-						'Dim car_number As Int = row.Get("car_number")
-						Dim lat As Double = row.Get("latitude")
-						Dim lng As Double = row.Get("longitude")
-						Dim trackLog As List = row.Get("before")
-							
-						If historyTrack.ContainsKey(imei) = False Then
-							historyTrack.Put(imei, trackLog)
-						Else
-							Dim before As List = historyTrack.Get(imei)
-							before.AddAll(trackLog)
-							historyTrack.Put(imei, before)
-						End If
-							
-						' Dim m As Marker = gmap.AddMarker3(lat, lng, "รถเมล์สาย" & name & " เบอร์ " & car_number, SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-60x60.png")))
-						Dim icon As Object = SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-90x90.png"))
-						If online = False Then icon = SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-90x90-black.png"))
-						Dim m As Marker = gmap.AddMarker3(lat, lng, imei, icon)
-						TrackBusName.Put(imei, m)
+					Dim dataMap As Map = ros.Get("data")
+					Dim point As List = dataMap.Get("point")
+					gmap.Clear
+					
+					Dim pl As Polyline = gmap.AddPolyline
+					Dim points As List
+					points.Initialize
+					For i = 0 To point.Size - 1
+						Dim local As Map = point.Get(i)
+						Dim l As LatLng
+						l.Initialize(local.Get("lat"), local.Get("long"))
+						points.Add(l)
 					Next
+					pl.Color = Colors.ARGB(255, 236, 233, 0)
+					pl.points = points
+					
+					Dim place As Map = AllPlaces.get(SelectPlace)
+					
+					Dim local1 As Map = point.Get(0)
+					Dim local2 As Map = point.Get(point.Size - 1)
+					
+					gmap.AddMarker(local1.Get("lat"), local1.Get("long"), "จุดเริ่มต้น")
+					gmap.AddMarker(local2.Get("lat"), local2.Get("long"), "จุดสิ้นสุด")
+					
+					Dim cp As CameraPosition
+					cp.Initialize((local1.Get("lat") + local2.Get("lat")) / 2, (local1.Get("long") + local2.Get("long")) / 2, 12)
+					gmap.AnimateCamera(cp)
+					
+					EditText1.Enabled = False
+					Button2.Visible = True
+					fadeOut(Panel3, 500)
+					
+					Dim listbus As List = dataMap.Get("busline")
+
+					ListView3.Clear
+					ListView3.TwoLinesAndBitmap.Label.TextColor = Colors.ARGB(255, 61, 61, 61)
+					ListView3.TwoLinesAndBitmap.ImageView.Left = 20dip
+					ListView3.TwoLinesAndBitmap.Label.Left = ListView3.TwoLinesAndBitmap.ImageView.Width + 30dip
+					ListView3.TwoLinesAndBitmap.SecondLabel.Left = ListView3.TwoLinesAndBitmap.Label.Left
+					ListView3.AddTwoLinesAndBitmap2("ดูเส้นทาง", "แสดงเส้นทางบนแผนที่", LoadBitmap(File.DirAssets, "a-b-make-icon-90x90.png"), 0)
+					For i = 0 To listbus.Size - 1
+						Dim row As Map = listbus.Get(i)
+'						Dim online As Boolean = row.Get("online")
+'						Dim imei As String = row.Get("imei")
+						Dim name As String = row.Get("name")
+						Dim car_number As Int = row.Get("car_number")
+'						Dim lat As Double = row.Get("latitude")
+'						Dim lng As Double = row.Get("longitude")
+'						Dim trackLog As List = row.Get("before")
+						
+						ListView3.AddTwoLinesAndBitmap2(name & " เบอร์ " & car_number, "ประเภท: รถโดยสารประจำทาง", LoadBitmap(File.DirAssets, "bus-icon-90x90.png"), row)
+					Next
+					
+					Panel8.Visible = True
+					TranslateTo(Panel8, 0, Panel2.Top + Panel2.Height + 20dip, 500)
+					ProgressDialogHide
+				Else
+					Dim msg As String = ros.Get("msg")
+					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")
+					ProgressDialogHide
+				End If
+				
+			Case "BuslineInfo"
+'				Log("BuslineInfo")
+				Dim strJson As String = Job.GetString
+'				Log(strJson)
+				Dim JSON As JSONParser
+			    JSON.Initialize(strJson)
+			    Dim ros As Map = JSON.NextObject
+				Dim e As Boolean = ros.Get("e")
+				If e = False Then
+					Dim dataMap As Map = ros.Get("data")
+					MakePoint = dataMap.Get("make-point")
+					
+					socket.Initialize("<Can not be revealed>", 86, "ASocket")
+					If timeUpdata.IsInitialized = False Then
+						timeUpdata.Initialize("timeUpdata", 3000)
+					End If
+					timeUpdata.Enabled = True
 				Else
 					Dim msg As String = ros.Get("msg")
 					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")
 				End If
+				ProgressDialogHide
+				
+'			Case "ListByName"
+'				Dim strJson As String = Job.GetString
+'				Dim JSON As JSONParser
+'			    JSON.Initialize(strJson)
+'			    Dim ros As Map = JSON.NextObject
+'				Dim e As Boolean = ros.Get("e")
+'				If e = False Then
+'					Dim dataList As List = ros.Get("data")
+'					Log(dataList)
+'					
+'					ListView3.Clear
+'					ListView3.TwoLinesAndBitmap.Label.TextColor = Colors.ARGB(255, 61, 61, 61)
+'					ListView3.TwoLinesAndBitmap.ImageView.Left = 20dip
+'					ListView3.TwoLinesAndBitmap.Label.Left = ListView3.TwoLinesAndBitmap.ImageView.Width + 30dip
+'					ListView3.TwoLinesAndBitmap.SecondLabel.Left = ListView3.TwoLinesAndBitmap.Label.Left
+'					ListView3.AddTwoLinesAndBitmap2("ดูเส้นทาง", "แสดงเส้นทางบนแผนที่", LoadBitmap(File.DirAssets, "a-b-make-icon-90x90.png"), 0)
+'					For i = 0 To dataList.Size - 1
+'						Dim row As Map = dataList.Get(i)
+''						Dim online As Boolean = row.Get("online")
+''						Dim imei As String = row.Get("imei")
+'						Dim name As String = row.Get("name")
+'						Dim car_number As Int = row.Get("car_number")
+''						Dim lat As Double = row.Get("latitude")
+''						Dim lng As Double = row.Get("longitude")
+''						Dim trackLog As List = row.Get("before")
+'						
+'						ListView3.AddTwoLinesAndBitmap2(name & " เบอร์ " & car_number, "รออีก ... นาที", LoadBitmap(File.DirAssets, "bus-icon-90x90.png"), row)
+'					Next
+'					
+'					
+'					Panel8.Visible = True
+'					TranslateTo(Panel8, 0, Panel2.Top + Panel2.Height + 20dip, 500)
+'					ProgressDialogHide
+'					If TrackBusName.IsInitialized = False Then 
+'						TrackBusName.Initialize
+'					End If
+'					If historyTrack.IsInitialized = False Then 
+'						historyTrack.Initialize
+'					End If
+'					For i = 0 To data.Size - 1
+'						Dim row As Map = data.Get(i)
+'						Dim online As Boolean = row.Get("online")
+'						Dim imei As String = row.Get("imei")
+'						'Dim name As String = row.Get("name")
+'						'Dim car_number As Int = row.Get("car_number")
+'						Dim lat As Double = row.Get("latitude")
+'						Dim lng As Double = row.Get("longitude")
+'						Dim trackLog As List = row.Get("before")
+'							
+'						If historyTrack.ContainsKey(imei) = False Then
+'							historyTrack.Put(imei, trackLog)
+'						Else
+'							Dim before As List = historyTrack.Get(imei)
+'							before.AddAll(trackLog)
+'							historyTrack.Put(imei, before)
+'						End If
+'							
+'						' Dim m As Marker = gmap.AddMarker3(lat, lng, "รถเมล์สาย" & name & " เบอร์ " & car_number, SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-60x60.png")))
+'						Dim icon As Object = SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-90x90.png"))
+'						If online = False Then icon = SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-90x90-black.png"))
+'						Dim m As Marker = gmap.AddMarker3(lat, lng, imei, icon)
+'						TrackBusName.Put(imei, m)
+'					Next
+'				Else
+'					Dim msg As String = ros.Get("msg")
+'					Msgbox("เกิดปัญหากับการเชื่อมต่อเซิฟเวอร์ : " & msg, "ผิดพลาด")
+'				End If
+'				ProgressDialogHide
 		End Select
 	Else
 		ToastMessageShow("Error: " & Job.ErrorMessage, True)
 	End If
-	socket.Initialize("<Can not be revealed>", 86, "ASocket")
-	If timeUpdata.IsInitialized = False Then
-		timeUpdata.Initialize("timeUpdata", 3000)
-	End If
-	timeUpdata.Enabled = True
-	EditText1.Enabled = False
-	Button2.Visible = True
+	
+'	socket.Initialize("<Can not be revealed>", 86, "ASocket")
+'	If timeUpdata.IsInitialized = False Then
+'		timeUpdata.Initialize("timeUpdata", 3000)
+'	End If
+'	timeUpdata.Enabled = True
+'	EditText1.Enabled = False
+'	Button2.Visible = True
 End Sub
 
 Sub ASocket_Connected(Successful As Boolean)
@@ -214,82 +360,74 @@ End Sub
 
 Sub ASocket_NewData(event As String, data As Object)
 	'Log(data)
-	If event = "BUS:" & EditText1.Text Then
-		Dim m As Map = data
-		Dim imei As String = m.Get("imei")
-		Dim location As Map = m.Get("location")
-		Dim lat As Double = location.Get("lat")
-		Dim lng As Double = location.Get("long")
-		'Dim speed As Double = location.Get("speedkm")
-		Dim marker As Marker = TrackBusName.Get(imei)
-		Dim latlng As LatLng
-		latlng.Initialize(lat, lng)
-		marker.Position = latlng
-		UpdataBar
-		SetFollowBus
+	Dim m As Map = data
+	Dim imei As String = m.Get("imei")
+	If imei = TrackBus.Get("imei") Then
+		If event = "UPDATE" Then
+			Dim location As Map = m.Get("location")
+			Dim lat As Double = location.Get("lat")
+			Dim lng As Double = location.Get("long")
+			'Dim speed As Double = location.Get("speedkm")
+			Dim latlng As LatLng
+			latlng.Initialize(lat, lng)
+			TrackBusMarker.Position = latlng
+			UpdataBar
+			SetFollowBus
+		Else If event = "REMOVE" Then
+			' รอเพิ่ม
+			Msgbox("ขณะนี้รถโดยสารที่ท่านเลือก ได้ออกจากระบบการให้บริการ", "ผิดพลาด")
+			Button2_Click
+			socket.Close
+		End If
 	End If
 	'ToastMessageShow("Event: " & event & " , Data: " & data, True)
 End Sub
 
 Sub UpdataBar
+	Dim Distance As Int = 0
 	If gmap.MyLocation.IsInitialized = False Then
 		Label1.Text = "ไม่พบที่อยู่ของคุณ"
 		Return
 	End If
 	Dim MyLocal As LatLng = gmap.MyLocation
-	
-	shortDistance = 999999999
-	For i = 0 To TrackBusName.Size - 1
-		Dim listA As List = historyTrack.Get(TrackBusName.GetKeyAt(i))
-		If listA.Size < 5 Then
-			Continue
-		End If
-		Dim marker As Marker = TrackBusName.GetValueAt(i)
-		Dim markerPos As LatLng = marker.Position
-		Dim Distance As Int = getDistance(MyLocal.Latitude, MyLocal.Longitude, markerPos.Latitude, markerPos.Longitude)
-		If Distance < shortDistance Then
-			shortDistance = Distance
-			shortDistanceImei = TrackBusName.GetKeyAt(i)
-		End If
-	Next
-	
-	Dim getTime As Boolean = False
-	Dim trackLog As List = historyTrack.Get(shortDistanceImei)
-	' Log(trackLog)
-	If trackLog.Size >= 5 Then
-		getTime = True
+	Dim BusLocal As LatLng = TrackBusMarker.Position
+'	Log(MyLocal)
+'	Log(BusLocal)
+'	
+'	Log(MakePoint)
+	Distance = DistanceByMakepoint(MakePoint, MyLocal.Latitude, MyLocal.Longitude, BusLocal.Latitude, BusLocal.Longitude)
+'	Log(Distance)
+	If historyTrack.Size >= 5 Then
 		Dim speedLog As List
 		speedLog.Initialize
 		Dim SumDistance As Float = 0
 		For i = 1 To 4
-			Dim track As Map = trackLog.Get(trackLog.Size - i)
-			Dim track2 As Map = trackLog.Get(trackLog.Size - i - 1)
+			Dim track As Map = historyTrack.Get(historyTrack.Size - i)
+			Dim track2 As Map = historyTrack.Get(historyTrack.Size - i - 1)
 			Dim DistanceA As Float = getDistance(track.Get("latitude"), track.Get("longitude"), track2.Get("latitude"), track2.Get("longitude"))
 			' speedLog.Add()
 			SumDistance = SumDistance + DistanceA
 		Next
-		Dim speedkm As Double = NumberFormat(SumDistance / 4 / 30, 0, 2)
-		Dim time2user As Int = shortDistance / speedkm / 60
-	End If
-	If getTime Then
+'		Log(SumDistance)
+		Dim speedkm As Double = SumDistance / 4 / 30
+'		Log(speedkm)
+		Dim time2user As Int = Distance / speedkm / 60
+'		Log(time2user)
+		
 		Label1.Text = "อีก " & time2user & " นาที รถเมล์จะมาถึง"
 	Else
-		If shortDistance < 1000 Then
-			Label1.Text = "รถเมล์ใกล้สุดห่าง " & shortDistance & " เมตร"
-		Else
-			Label1.Text = "รถเมล์ใกล้สุดห่าง " & NumberFormat(shortDistance / 1000, 0, 1) & " กิโลเมตร"
-		End If
+		Label1.Text = "รถเมล์ใกล้สุดห่าง " & NumberFormat(Distance, 0, 2) & " กิโลเมตร"
 	End If
 	
 End Sub
 
 Sub getDistance(lat1 As Double, lng1 As Double, lat2 As Double, lng2 As Double) As Double
-	Dim R As Int = 6378137 ' Earth’s mean radius in meter
+	Dim R As Int = 6371
 	Dim dLat As Double = rad(lat2 - lat1)
 	Dim dLong As Double = rad(lng2 - lng1)
 	Dim a As Double = Sin(dLat / 2) * Sin(dLat / 2) + Cos(rad(lat1)) * Cos(rad(lat2)) * Sin(dLong / 2) * Sin(dLong / 2)
 	Dim c As Double = 2 * ATan2(Sqrt(a), Sqrt(1 - a))
-	Return R * c 'returns the distance in meter
+	Return R * c ' returns the distance in km
 End Sub
 
 Sub rad(x As Double) As Double
@@ -305,19 +443,17 @@ Sub Button1_Click
 	If FollowBus = False Then
 		colorEnabledA = Colors.RGB(230, 0, 0)
 		colorPressedA = Colors.RGB(179, 0, 0)
-		FollowImei = shortDistanceImei
-		If FollowImei = "" Then
+		If gmap.MyLocationEnabled = False Then
 			Msgbox("ไม่พบที่อยู่ของคุณกรุณาเปิด GPS", "ผิดพลาด")
 			Return
 		End If
-		SetFollowBus
 		FollowBus = True
+		SetFollowBus
 		Button1.Text = "ยกเลิก"
 	Else
 		colorEnabledA = Colors.RGB(0, 123, 192)
 		colorPressedA = Colors.RGB(0, 80, 126)
 		FollowBus = False
-		FollowImei = ""
 		Button1.Text = "ติดตาม"
 	End If
 	Dim ColorEnabled As ColorDrawable
@@ -342,9 +478,10 @@ Sub Button2_Click
 	EditText1.Text = ""
 	EditText1.Enabled = True
 	timeUpdata.Enabled = False
-	TrackBusName.Clear
+'	TrackBusName.Clear
 	TranslateTo(Panel4, Panel4.Left, 100%y, 500)
 	fadeIn(Panel3, 500)
+	TranslateTo(Panel8, 0, 100%y, 500)
 	gmap.Clear
 End Sub
 
@@ -360,11 +497,9 @@ End Sub
 
 Sub SetFollowBus
 	If FollowBus = False Then Return
-	If FollowImei = "" Then Return
-	
-	Dim marker As Marker = TrackBusName.Get(FollowImei)
+
 	Dim latlng As LatLng
-	latlng = marker.Position
+	latlng = TrackBusMarker.Position
 	Dim cp As CameraPosition
 	cp.Initialize(latlng.Latitude, latlng.Longitude, 18)
 	gmap.AnimateCamera(cp)
@@ -459,4 +594,107 @@ Sub ListView2_ItemClick (Position As Int, Value As Object)
 		Case 1
 			StartActivity(appinfo)
 	End Select
+End Sub
+
+Sub ListView3_ItemClick (Position As Int, Value As Object)
+	If Position <> 0 Then
+		TrackBus = Value
+		
+'		Dim online As Boolean = row.Get("online")
+'		Dim imei As String = row.Get("imei")
+		Dim name As String = TrackBus.Get("name")
+		Dim car_number As Int = TrackBus.Get("car_number")
+		Dim lat As Double = TrackBus.Get("latitude")
+		Dim lng As Double = TrackBus.Get("longitude")
+		historyTrack = TrackBus.Get("before")
+		
+		Dim icon As Object = SetBitmapDensity(LoadBitmap(File.DirAssets, "bus-icon-90x90.png"))
+		TrackBusMarker = gmap.AddMarker3(lat, lng, name & " เบอร์ " & car_number, icon)
+		
+'		Log("Load bus info")
+		http.Initialize("BuslineInfo", Me)
+		http.Download2("http://<Can not be revealed>:85/busline", Array As String("name", name))
+		ProgressDialogShow("รอซักครู่...")
+	End If
+	TranslateTo(Panel8, 0, 100%y, 500)
+End Sub
+
+Sub DistanceByMakepoint(point As List, startLat As Double, startLong As Double, endLat As Double, endLong As Double) As Double
+	Dim makepointStartLat As Double = 0
+	Dim makepointStartLong As Double = 0
+	Dim minDistanceStart As Double = Power(10, 12)
+	Dim makepointEndLat As Double = 0
+	Dim makepointEndLong As Double = 0
+	Dim minDistanceEnd As Int = Power(10, 12)
+	Dim indexStart As Int = -1
+	Dim indexEnd As Int = -1
+	
+'	Log(minDistanceStart)
+'	Log(point)
+	For index = 0 To point.Size - 1
+		Dim pointRow As List = point.Get(index)
+		Dim tmpDistance As Double = getDistance(startLat, startLong, pointRow.Get(0), pointRow.Get(1))
+'		Log("tmpDistance = " & tmpDistance)
+		If tmpDistance < minDistanceStart Then
+			makepointStartLat = pointRow.Get(0)
+			makepointStartLong = pointRow.Get(1)
+			minDistanceStart = tmpDistance
+			indexStart = index
+'			Log("Set indexStart = " & indexStart)
+		End If
+		
+		Dim tmpDistance2 As Double = getDistance(endLat, endLong, pointRow.Get(0), pointRow.Get(1))
+'		Log("tmpDistance2 = " & tmpDistance2)
+		If tmpDistance2 < minDistanceEnd Then
+			makepointEndLat = pointRow.Get(0)
+			makepointEndLong = pointRow.Get(1)
+			minDistanceEnd = tmpDistance2
+			indexEnd = index
+'			Log("Set indexEnd = " & indexEnd)
+		End If
+	Next
+	
+	
+'	Log(minDistanceStart)
+'	Log(makepointStartLat & "," & makepointStartLong)
+'	Log(minDistanceEnd)
+'	Log(makepointEndLat & "," & makepointEndLong)
+'	Log(indexStart)
+'	Log(indexEnd)
+
+	Dim Distance As Double = minDistanceStart
+	Dim indexSele As Int
+	Dim notindexSele As Int
+	
+	If indexStart < indexEnd Then
+		indexSele = indexEnd
+		notindexSele = indexStart
+	Else
+		indexSele = indexStart
+		notindexSele = indexEnd
+	End If
+	
+'	Log("inNewLoop")
+'	Log("Start is " & indexSele)
+'	Log("End is " & notindexSele)
+	For index = indexSele To notindexSele Step -1
+		Dim pointRow As List = point.Get(index)
+'		Log(pointRow)
+		Dim indexNext As Int
+		If index < indexSele Then
+			indexNext = index + 1
+		Else
+			indexNext = index
+		End If
+		Dim pointRowNext As List = point.Get(indexNext)
+		Distance = Distance + getDistance(pointRow.Get(0), pointRow.Get(1), pointRowNext.Get(0), pointRowNext.Get(1))
+	Next
+'	Log("Outloop")
+	Distance = Distance + minDistanceEnd
+	Distance = Round2(Distance, 2)
+	
+'	Log("New Distance is " & Distance & " km.")
+'	Log("Old Distance is " & NumberFormat(getDistance(startLat, startLong, endLat, endLong), 0, 2) & " km.")
+
+	Return Distance
 End Sub
