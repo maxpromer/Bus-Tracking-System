@@ -78,7 +78,7 @@ def main():
 				digitalWrite(LED_INT_PIN, HIGH)
 				
 				print "Send to internet..."
-				verify = int((latitude_n * 10) - (longitude_n * 10))
+				verify = <Can not be revealed>
 				
 				url = "http://<Can not be revealed>/api/addtrack.php?imei={imei}&latitude={latitude}&longitude={longitude}&speedkm={speedkm}&verify={verify}".format(imei=imei, latitude=latitude_n, longitude=longitude_n, speedkm=speedkm_n, verify=verify)
 				
