@@ -80,6 +80,7 @@ def main():
 				print "Send to internet..."
 				verify = int((latitude_n * 10) - (longitude_n * 10))
 				
+				url = "http://<Can not be revealed>/api/addtrack.php?imei={imei}&latitude={latitude}&longitude={longitude}&speedkm={speedkm}&verify={verify}".format(imei=imei, latitude=latitude_n, longitude=longitude_n, speedkm=speedkm_n, verify=verify)
 				
 				sendToSV = False
 				try:
